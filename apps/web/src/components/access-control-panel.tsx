@@ -87,7 +87,7 @@ export const AccessControlPanel = () => {
             scannedAt: record.scannedAt,
             source: 'scanner',
           });
-          setStatus({ type: 'info', message: `${invitee.name} en cola offline. Se sincronizará.¡ automÃ¡ticamente.` });
+          setStatus({ type: 'info', message: `${invitee.name} en cola offline. Se sincronizarÃ¡ automÃ¡ticamente.` });
         }
       } catch (error) {
         console.error('Error enviando check-in', error);
@@ -98,7 +98,7 @@ export const AccessControlPanel = () => {
           scannedAt: record.scannedAt,
           source: 'scanner',
         });
-        setStatus({ type: 'info', message: `${invitee.name} en cola offline. Se sincronizará.¡.` });
+        setStatus({ type: 'info', message: `${invitee.name} en cola offline. Se sincronizarÃ¡.` });
       }
     },
     [invitees, alreadyCheckedIds, appendCheckIn],
@@ -111,7 +111,7 @@ export const AccessControlPanel = () => {
 
     try {
       if (!navigator.mediaDevices?.getUserMedia) {
-        setStatus({ type: 'error', message: 'El navegador no soporta captura de cámara.' });
+        setStatus({ type: 'error', message: 'El navegador no soporta captura de cÃ¡mara.' });
         return;
       }
 
@@ -124,7 +124,7 @@ export const AccessControlPanel = () => {
       const preferredDevice =
         devices.find((device) => device.label.toLowerCase().includes('back')) ?? devices[0];
       if (!preferredDevice?.deviceId) {
-        setStatus({ type: 'error', message: 'No se encontró cámara disponible.' });
+        setStatus({ type: 'error', message: 'No se encontrÃ³ cÃ¡mara disponible.' });
         return;
       }
 
@@ -137,11 +137,11 @@ export const AccessControlPanel = () => {
           console.debug('Scanner error', error);
         }
       });
-      setStatus({ type: 'info', message: 'Escáner listo. Apunta al QR.' });
+      setStatus({ type: 'info', message: 'EscÃ¡ner listo. Apunta al QR.' });
       setScannerActive(true);
     } catch (error) {
       console.error('Scanner error', error);
-      setStatus({ type: 'error', message: 'No se pudo iniciar la cámara. Verifica permisos.' });
+      setStatus({ type: 'error', message: 'No se pudo iniciar la cÃ¡mara. Verifica permisos.' });
     }
   }, [handleResult]);
   const stopScanner = useCallback(async () => {
