@@ -1,0 +1,27 @@
+﻿# Root ignores
+node_modules/
+.next/
+out/
+.DS_Store
+.env*
+coverage/
+dist/
+.vscode/
+.firebase/
+firestore-debug.log
+storage-debug.log
+*.log
+
+# Apps
+apps/web/node_modules/
+apps/web/.next/
+apps/web/out/
+apps/web/test-results/
+
+# Functions
+functions/lib/
+functions/node_modules/
+functions/.firebase/
+functions/package-lock.json
+functions/npm-debug.log*
+
