@@ -87,7 +87,7 @@ export const AccessControlPanel = () => {
             scannedAt: record.scannedAt,
             source: 'scanner',
           });
-          setStatus({ type: 'info', message: `${invitee.name} en cola offline. Se sincronizarÃ¡ automÃ¡ticamente.` });
+          setStatus({ type: 'info', message: `${invitee.name} en cola offline. Se sincronizará.¡ automÃ¡ticamente.` });
         }
       } catch (error) {
         console.error('Error enviando check-in', error);
@@ -98,7 +98,7 @@ export const AccessControlPanel = () => {
           scannedAt: record.scannedAt,
           source: 'scanner',
         });
-        setStatus({ type: 'info', message: `${invitee.name} en cola offline. Se sincronizarÃ¡.` });
+        setStatus({ type: 'info', message: `${invitee.name} en cola offline. Se sincronizará.¡.` });
       }
     },
     [invitees, alreadyCheckedIds, appendCheckIn],
@@ -110,14 +110,25 @@ export const AccessControlPanel = () => {
     readerRef.current = reader;
 
     try {
-      const devices = await BrowserMultiFormatReader.listVideoInputDevices();
-      const deviceId = devices[0]?.deviceId;
-      if (!deviceId) {
-        setStatus({ type: 'error', message: 'No se encontrÃ³ cÃ¡mara en el dispositivo.' });
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setStatus({ type: 'error', message: 'El navegador no soporta captura de cámara.' });
         return;
       }
 
-      await reader.decodeFromVideoDevice(deviceId, videoRef.current, (result, error) => {
+      const provisionalStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } },
+      });
+      provisionalStream.getTracks().forEach((track) => track.stop());
+
+      const devices = await BrowserMultiFormatReader.listVideoInputDevices();
+      const preferredDevice =
+        devices.find((device) => device.label.toLowerCase().includes('back')) ?? devices[0];
+      if (!preferredDevice?.deviceId) {
+        setStatus({ type: 'error', message: 'No se encontró cámara disponible.' });
+        return;
+      }
+
+      await reader.decodeFromVideoDevice(preferredDevice.deviceId, videoRef.current, (result, error) => {
         if (result) {
           const value = result.getText();
           setTimeout(() => void handleResult(value), 0);
@@ -126,14 +137,13 @@ export const AccessControlPanel = () => {
           console.debug('Scanner error', error);
         }
       });
-      setStatus({ type: 'info', message: 'EscÃ¡ner listo. Apunta al QR.' });
+      setStatus({ type: 'info', message: 'Escáner listo. Apunta al QR.' });
       setScannerActive(true);
     } catch (error) {
       console.error('Scanner error', error);
-      setStatus({ type: 'error', message: 'No se pudo iniciar la cÃ¡mara.' });
+      setStatus({ type: 'error', message: 'No se pudo iniciar la cámara. Verifica permisos.' });
     }
   }, [handleResult]);
-
   const stopScanner = useCallback(async () => {
     const reader = readerRef.current;
     if (reader) {
@@ -262,4 +272,6 @@ export const AccessControlPanel = () => {
     </section>
   );
 };
+
+
 
