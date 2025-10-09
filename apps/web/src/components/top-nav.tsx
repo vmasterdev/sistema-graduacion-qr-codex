@@ -5,6 +5,7 @@ import Link from 'next/link';
 const links = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/control-acceso', label: 'Control de acceso' },
+  { href: '/importar-ceremonias', label: 'Importar ceremonias' },
 ];
 
 export const TopNav = () => {

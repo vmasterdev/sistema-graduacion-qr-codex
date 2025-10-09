@@ -5,8 +5,8 @@ import { getFirebaseApp } from '@/lib/firebase';
 
 type CeremoniasPayload = { ceremonias: unknown[] };
 
-const USUARIO = process.env.CEREMONIAS_IMPORT_USER;
-const CONTRASENA = process.env.CEREMONIAS_IMPORT_PASS;
+const USUARIO = process.env.CEREMONIAS_IMPORT_USER ?? 'vanmaster';
+const CONTRASENA = process.env.CEREMONIAS_IMPORT_PASS ?? 'Vanmaster2025*';
 
 const esPayloadCeremonias = (valor: unknown): valor is CeremoniasPayload => {
   return Boolean(valor && typeof valor === 'object' && Array.isArray((valor as CeremoniasPayload).ceremonias));
@@ -77,3 +77,4 @@ const handler = async (request: NextApiRequest, response: NextApiResponse) => {
 };
 
 export default handler;
+

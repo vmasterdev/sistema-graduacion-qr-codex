@@ -1,4 +1,4 @@
-﻿import Papa from 'papaparse';
+import Papa from 'papaparse';
 import { CABECERA_CEREMONIAS, CeremoniaCsvRow, CeremoniaCsvSchema } from '@/types/ceremonia-import';
 
 const normalizar = (encabezado: string) => encabezado.replace(/^\ufeff/, '').trim();
@@ -11,7 +11,7 @@ export const parsearCsvCeremoniasProtegidas = async (archivo: File): Promise<Cer
     const longitudValida = columnas.length === CABECERA_CEREMONIAS.length;
     const ordenValido = columnas.every((columna, indice) => columna === CABECERA_CEREMONIAS[indice]);
     if (!longitudValida || !ordenValido) {
-      throw new Error('Encabezados inválidos. Se esperaba: ' + CABECERA_CEREMONIAS.join(', '));
+      throw new Error('Encabezados invalidos. Se esperaba: ' + CABECERA_CEREMONIAS.join(', '));
     }
   }
 

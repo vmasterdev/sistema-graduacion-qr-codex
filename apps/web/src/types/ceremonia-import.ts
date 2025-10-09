@@ -1,4 +1,4 @@
-﻿import { z } from 'zod';
+import { z } from 'zod';
 
 /**
  * Esquema de las ceremonias admitidas en la carga masiva protegida.
