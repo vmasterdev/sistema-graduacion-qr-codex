@@ -8,14 +8,30 @@ export const StatsOverview = () => {
   const invitees = useDashboardStore((state) => state.invitees);
   const students = useDashboardStore((state) => state.students);
   const checkIns = useDashboardStore((state) => state.checkIns);
+  const selectedCeremonyId = useDashboardStore((state) => state.selectedCeremonyId);
+
+  const inviteesForCeremony = useMemo(
+    () => (selectedCeremonyId ? invitees.filter((invitee) => invitee.ceremonyId === selectedCeremonyId) : invitees),
+    [invitees, selectedCeremonyId],
+  );
+
+  const studentsForCeremony = useMemo(
+    () => (selectedCeremonyId ? students.filter((student) => student.idCeremonia === selectedCeremonyId) : students),
+    [students, selectedCeremonyId],
+  );
+
+  const checkInsForCeremony = useMemo(
+    () => (selectedCeremonyId ? checkIns.filter((log) => log.ceremonyId === selectedCeremonyId) : checkIns),
+    [checkIns, selectedCeremonyId],
+  );
 
   const counts = useMemo(() => {
-    const totalGuests = invitees.filter((invitee) => invitee.role === 'guest').length;
-    const totalStudents = students.length;
-    const totalInvitees = invitees.length;
-    const attendance = totalInvitees ? Math.round((checkIns.length / totalInvitees) * 100) : 0;
+    const totalGuests = inviteesForCeremony.filter((invitee) => invitee.role === 'guest').length;
+    const totalStudents = studentsForCeremony.length;
+    const totalInvitees = inviteesForCeremony.length;
+    const attendance = totalInvitees ? Math.round((checkInsForCeremony.length / totalInvitees) * 100) : 0;
     return { totalGuests, totalStudents, totalInvitees, attendance };
-  }, [invitees, students, checkIns.length]);
+  }, [inviteesForCeremony, studentsForCeremony, checkInsForCeremony.length]);
 
   const cards = [
     {

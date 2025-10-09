@@ -48,18 +48,20 @@ export const TicketDownloads = () => {
     [templates, selectedTemplateId],
   );
 
-  const [previewInvitee, setPreviewInvitee] = useState<Invitee | undefined>(invitees[0]);
+  const inviteesForCeremony = useMemo(() => (selectedCeremonyId ? invitees.filter((invitee) => invitee.ceremonyId === selectedCeremonyId) : invitees), [invitees, selectedCeremonyId]);
+
+  const [previewInvitee, setPreviewInvitee] = useState<Invitee | undefined>(inviteesForCeremony[0]);
 
   useEffect(() => {
-    setPreviewInvitee(invitees[0]);
-  }, [invitees]);
+    setPreviewInvitee(inviteesForCeremony[0]);
+  }, [inviteesForCeremony]);
 
   const ensureReady = () => {
     if (!template) {
       alert('Diseña o selecciona una plantilla antes de exportar.');
       return false;
     }
-    if (!invitees.length) {
+    if (!inviteesForCeremony.length) {
       alert('Carga estudiantes para generar tarjetas.');
       return false;
     }
@@ -80,9 +82,9 @@ export const TicketDownloads = () => {
     if (!ensureReady()) return;
     setIsDownloading(true);
     try {
-      const dataUrl = await captureInvitee(invitees[0]);
+      const dataUrl = await captureInvitee(inviteesForCeremony[0]);
       if (dataUrl) {
-        triggerDownload(dataUrl, `${invitees[0].ticketCode}.png`);
+        triggerDownload(dataUrl, `${inviteesForCeremony[0].ticketCode}.png`);
       }
     } finally {
       setIsDownloading(false);
@@ -93,9 +95,9 @@ export const TicketDownloads = () => {
     if (!ensureReady()) return;
     setIsDownloading(true);
     try {
-      const dataUrl = await captureInvitee(invitees[0]);
+      const dataUrl = await captureInvitee(inviteesForCeremony[0]);
       if (dataUrl) {
-        await downloadPdf(dataUrl, `${invitees[0].ticketCode}.pdf`);
+        await downloadPdf(dataUrl, `${inviteesForCeremony[0].ticketCode}.pdf`);
       }
     } finally {
       setIsDownloading(false);
@@ -107,7 +109,7 @@ export const TicketDownloads = () => {
     setIsDownloading(true);
     try {
       const zip = new JSZip();
-      for (const invitee of invitees) {
+      for (const invitee of inviteesForCeremony) {
         const dataUrl = await captureInvitee(invitee);
         if (!dataUrl) continue;
         const base64 = dataUrl.split(',')[1];
@@ -119,7 +121,7 @@ export const TicketDownloads = () => {
       setTimeout(() => URL.revokeObjectURL(url), 4000);
     } finally {
       setIsDownloading(false);
-      setPreviewInvitee(invitees[0]);
+      setPreviewInvitee(inviteesForCeremony[0]);
     }
   };
 
@@ -137,7 +139,7 @@ export const TicketDownloads = () => {
         <div>
           <h2 className="text-lg font-semibold text-white">Descarga de tarjetas</h2>
           <p className="text-sm text-slate-300">
-            {invitees.length} tarjetas listas · Plantilla {template.name}
+             tarjetas listas · Plantilla {template.name}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -184,3 +186,6 @@ export const TicketDownloads = () => {
     </section>
   );
 };
+
+
+

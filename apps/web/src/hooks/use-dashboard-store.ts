@@ -64,9 +64,6 @@ export const useDashboardStore = create<DashboardState>()(
     selectTemplate: (templateId) => set({ selectedTemplateId: templateId }),
     ingestCsvRows: async (rows) => {
       const { selectedCeremonyId, selectedTemplateId, templates } = get();
-      if (!selectedCeremonyId) {
-        throw new Error('Seleccione una ceremonia antes de importar.');
-      }
 
       set({ isProcessingCsv: true, importError: undefined });
       try {
@@ -74,19 +71,32 @@ export const useDashboardStore = create<DashboardState>()(
         const invitees: Invitee[] = [];
 
         for (const row of rows) {
+          const ceremonyFromRow = row.idCeremonia?.trim();
+          const ceremonyId = ceremonyFromRow || selectedCeremonyId;
+          if (!ceremonyId) {
+            throw new Error('Cada fila debe incluir un idCeremonia o debe seleccionarse una ceremonia activa.');
+          }
+
+          if (selectedCeremonyId && ceremonyFromRow && ceremonyFromRow !== selectedCeremonyId) {
+            console.warn('Fila importada con idCeremonia distinto al seleccionado actualmente. Se respetará el valor del CSV.');
+          }
+
           const studentInviteeId = crypto.randomUUID();
-          const studentTicketCode = generateTicketCode(selectedCeremonyId);
+          const studentTicketCode = generateTicketCode(ceremonyId);
           const studentQr = await createQrDataUrl(studentTicketCode);
 
           const studentInvitee: Invitee = {
             id: studentInviteeId,
-            name: row.fullName,
-            documentNumber: row.documentNumber,
-            ceremonyId: selectedCeremonyId,
+            name: row.nombreCompleto,
+            documentNumber: row.numeroDocumento,
+            ceremonyId,
+            idCeremonia: ceremonyId,
             ticketCode: studentTicketCode,
             role: 'student',
-            studentId: row.studentId,
-            programName: row.programName,
+            idEstudiante: row.idEstudiante,
+            programa: row.programa,
+            fechaCeremonia: row.fechaCeremonia,
+            municipio: row.municipio,
             qrCode: studentQr,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -94,24 +104,27 @@ export const useDashboardStore = create<DashboardState>()(
 
           const guestEntries: Invitee[] = [];
           const guestSeeds = [
-            { name: row.guestOneName, document: row.guestOneDocument, index: 0 },
-            { name: row.guestTwoName, document: row.guestTwoDocument, index: 1 },
+            { nombre: row.nombreInvitadoUno, documento: row.documentoInvitadoUno, index: 0 },
+            { nombre: row.nombreInvitadoDos, documento: row.documentoInvitadoDos, index: 1 },
           ];
 
           guestSeeds.forEach((guest) => {
-            if (!guest.name) {
+            if (!guest.nombre) {
               return;
             }
-            const guestTicketCode = generateTicketCode(selectedCeremonyId);
+            const guestTicketCode = generateTicketCode(ceremonyId);
             const invitee: Invitee = {
               id: crypto.randomUUID(),
-              name: guest.name,
-              documentNumber: guest.document,
-              ceremonyId: selectedCeremonyId,
+              name: guest.nombre,
+              documentNumber: guest.documento,
+              ceremonyId,
+              idCeremonia: ceremonyId,
               ticketCode: guestTicketCode,
               role: 'guest',
-              studentId: row.studentId,
-              programName: row.programName,
+              idEstudiante: row.idEstudiante,
+              programa: row.programa,
+              fechaCeremonia: row.fechaCeremonia,
+              municipio: row.municipio,
               guestIndex: guest.index,
               qrCode: '',
               createdAt: new Date().toISOString(),
@@ -123,11 +136,17 @@ export const useDashboardStore = create<DashboardState>()(
           invitees.push(studentInvitee);
           students.push({
             id: crypto.randomUUID(),
-            studentId: row.studentId,
-            fullName: row.fullName,
-            documentNumber: row.documentNumber,
-            programName: row.programName,
-            ceremonyId: selectedCeremonyId,
+            idEstudiante: row.idEstudiante,
+            nombreCompleto: row.nombreCompleto,
+            numeroDocumento: row.numeroDocumento,
+            programa: row.programa,
+            idCeremonia: ceremonyId,
+            fechaCeremonia: row.fechaCeremonia,
+            municipio: row.municipio,
+            nombreInvitadoUno: row.nombreInvitadoUno,
+            documentoInvitadoUno: row.documentoInvitadoUno,
+            nombreInvitadoDos: row.nombreInvitadoDos,
+            documentoInvitadoDos: row.documentoInvitadoDos,
             invitees: [studentInvitee, ...guestEntries],
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),

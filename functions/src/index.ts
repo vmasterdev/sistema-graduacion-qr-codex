@@ -17,12 +17,17 @@ interface InviteePayload {
 }
 
 interface StudentPayload {
-  studentId: string;
-  fullName: string;
-  documentNumber: string;
-  programName: string;
-  ceremonyId: string;
-  guests: Array<{ name: string; documentNumber?: string }>;
+  idEstudiante: string;
+  nombreCompleto: string;
+  numeroDocumento: string;
+  programa: string;
+  idCeremonia: string;
+  fechaCeremonia: string;
+  municipio: string;
+  nombreInvitadoUno?: string;
+  documentoInvitadoUno?: string;
+  nombreInvitadoDos?: string;
+  documentoInvitadoDos?: string;
 }
 
 setGlobalOptions({ region: 'us-central1' });
@@ -99,39 +104,67 @@ app.post('/tickets/import', async (request, response) => {
   const batch = db.batch();
 
   students.forEach((student) => {
-    const studentRef = db.collection('ceremonies').doc(student.ceremonyId).collection('students').doc(student.studentId);
+    const studentRef = db.collection('ceremonies').doc(student.idCeremonia).collection('students').doc(student.idEstudiante);
     batch.set(studentRef, {
-      fullName: student.fullName,
-      documentNumber: student.documentNumber,
-      programName: student.programName,
+      idEstudiante: student.idEstudiante,
+      nombreCompleto: student.nombreCompleto,
+      numeroDocumento: student.numeroDocumento,
+      programa: student.programa,
+      fechaCeremonia: student.fechaCeremonia,
+      municipio: student.municipio,
+      nombreInvitadoUno: student.nombreInvitadoUno ?? null,
+      documentoInvitadoUno: student.documentoInvitadoUno ?? null,
+      nombreInvitadoDos: student.nombreInvitadoDos ?? null,
+      documentoInvitadoDos: student.documentoInvitadoDos ?? null,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    const allInvitees: Array<{ role: TicketRole; name: string; documentNumber?: string; inviteeId: string }> = [
-      { role: 'student', name: student.fullName, documentNumber: student.documentNumber, inviteeId: student.studentId },
-      ...student.guests.map((guest, index) => ({
-        role: 'guest' as TicketRole,
-        name: guest.name,
-        documentNumber: guest.documentNumber,
-        inviteeId: `${student.studentId}-guest-${index + 1}`,
-      })),
-    ];
+    const invitados = [
+      {
+        rol: 'student' as TicketRole,
+        nombre: student.nombreCompleto,
+        documento: student.numeroDocumento,
+        invitadoId: student.idEstudiante,
+        indice: 0,
+      },
+      student.nombreInvitadoUno
+        ? {
+            rol: 'guest' as TicketRole,
+            nombre: student.nombreInvitadoUno,
+            documento: student.documentoInvitadoUno,
+            invitadoId: `${student.idEstudiante}-invitado-1`,
+            indice: 1,
+          }
+        : undefined,
+      student.nombreInvitadoDos
+        ? {
+            rol: 'guest' as TicketRole,
+            nombre: student.nombreInvitadoDos,
+            documento: student.documentoInvitadoDos,
+            invitadoId: `${student.idEstudiante}-invitado-2`,
+            indice: 2,
+          }
+        : undefined,
+    ].filter(Boolean) as Array<{ rol: TicketRole; nombre: string; documento?: string; invitadoId: string; indice: number }>;
 
-    allInvitees.forEach((invitee) => {
-      const ticketCode = `${student.ceremonyId}-${invitee.inviteeId}-${Date.now()}`;
+    invitados.forEach((invitado) => {
+      const ticketCode = `${student.idCeremonia}-${invitado.invitadoId}-${Date.now()}`;
       const inviteeRef = db
         .collection('ceremonies')
-        .doc(student.ceremonyId)
+        .doc(student.idCeremonia)
         .collection('invitees')
-        .doc(invitee.inviteeId);
+        .doc(invitado.invitadoId);
 
       batch.set(inviteeRef, {
-        name: invitee.name,
+        nombre: invitado.nombre,
         ticketCode,
-        role: invitee.role,
-        documentNumber: invitee.documentNumber ?? null,
-        programName: student.programName,
-        qrCode: null,
+        rol: invitado.rol,
+        documento: invitado.documento ?? null,
+        idEstudiante: student.idEstudiante,
+        programa: student.programa,
+        fechaCeremonia: student.fechaCeremonia,
+        municipio: student.municipio,
+        indiceInvitado: invitado.indice,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
     });

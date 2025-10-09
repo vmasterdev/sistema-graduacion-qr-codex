@@ -10,15 +10,17 @@ export interface Ceremony {
 }
 
 export interface CsvStudentRow {
-  studentId: string;
-  fullName: string;
-  documentNumber: string;
-  programName: string;
-  ceremonyId: string;
-  guestOneName?: string;
-  guestOneDocument?: string;
-  guestTwoName?: string;
-  guestTwoDocument?: string;
+  idEstudiante: string;
+  nombreCompleto: string;
+  numeroDocumento: string;
+  programa: string;
+  idCeremonia: string;
+  fechaCeremonia: string;
+  municipio: string;
+  nombreInvitadoUno?: string;
+  documentoInvitadoUno?: string;
+  nombreInvitadoDos?: string;
+  documentoInvitadoDos?: string;
 }
 
 export interface TicketTemplate {
@@ -54,10 +56,13 @@ export interface Invitee {
   name: string;
   documentNumber?: string;
   ceremonyId: string;
+  idCeremonia?: string;
   ticketCode: string;
   role: TicketRole;
-  studentId: string;
-  programName?: string;
+  idEstudiante: string;
+  programa?: string;
+  fechaCeremonia?: string;
+  municipio?: string;
   guestIndex?: number;
   qrCode: string;
   createdAt: string;
@@ -66,11 +71,17 @@ export interface Invitee {
 
 export interface Student {
   id: string;
-  studentId: string;
-  fullName: string;
-  documentNumber: string;
-  programName: string;
-  ceremonyId: string;
+  idEstudiante: string;
+  nombreCompleto: string;
+  numeroDocumento: string;
+  programa: string;
+  idCeremonia: string;
+  fechaCeremonia: string;
+  municipio: string;
+  nombreInvitadoUno?: string;
+  documentoInvitadoUno?: string;
+  nombreInvitadoDos?: string;
+  documentoInvitadoDos?: string;
   invitees: Invitee[];
   createdAt: string;
   updatedAt: string;

@@ -1,4 +1,4 @@
-﻿import QRCode from 'qrcode';
+import QRCode from 'qrcode';
 import { Invitee, TicketAssignment, TicketTemplate } from '@/types';
 
 export const generateTicketCode = (ceremonyId: string, seed?: string) => {
@@ -23,7 +23,7 @@ export const mapInviteeToTicket = async (
   return {
     id: `${invitee.id}-${template.id}`,
     ceremonyId: invitee.ceremonyId,
-    studentId: invitee.studentId,
+    studentId: invitee.idEstudiante,
     inviteeId: invitee.id,
     role: invitee.role,
     qrCode,

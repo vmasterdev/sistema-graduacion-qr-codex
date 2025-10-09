@@ -6,21 +6,18 @@ import { parseStudentsCsv } from '@/lib/csv';
 import { useDashboardStore } from '@/hooks/use-dashboard-store';
 
 const templateHeaders = [
-  'studentId',
-  'fullName',
-  'documentNumber',
-  'programName',
-  'ceremonyId',
-  'guestOneName',
-  'guestOneDocument',
-  'guestTwoName',
-  'guestTwoDocument',
+  'idEstudiante',
+  'nombreCompleto',
+  'numeroDocumento',
+  'idCeremonia',
+  'fechaCeremonia',
+  'municipio',
+  'nombreInvitadoUno',
+  'documentoInvitadoUno',
+  'nombreInvitadoDos',
+  'documentoInvitadoDos',
+  'programa',
 ] as const;
-
-const buildCsvTemplate = () => {
-  const headerRow = `${templateHeaders.join(',')}`;
-  return `${headerRow}\n`;
-};
 
 export const CsvUploader = () => {
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -31,18 +28,12 @@ export const CsvUploader = () => {
   const [successMessage, setSuccessMessage] = useState<string | undefined>();
 
   const handleDownloadTemplate = () => {
-    const csv = buildCsvTemplate();
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-
     const link = document.createElement('a');
-    link.href = url;
+    link.href = '/plantilla_carga_estudiantes.csv';
     link.download = 'plantilla_carga_estudiantes.csv';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-
-    URL.revokeObjectURL(url);
   };
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -55,7 +46,7 @@ export const CsvUploader = () => {
     try {
       const rows = await parseStudentsCsv(file);
       await ingestCsvRows(rows);
-      setSuccessMessage(`Importados ${rows.length} estudiantes con invitados`);
+      setSuccessMessage(`Importados ${rows.length} estudiantes e invitados asociados`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'No se pudo procesar el CSV';
       setImportError(message);
@@ -72,7 +63,8 @@ export const CsvUploader = () => {
         <div>
           <h2 className="text-lg font-semibold text-white">Carga masiva de estudiantes</h2>
           <p className="mt-1 text-sm text-slate-300">
-            Sube el archivo CSV con estudiantes, programa académico y hasta 2 invitados por fila. Generaremos códigos QR únicos automáticamente.
+            Sube el archivo CSV con la información completa del estudiante, su ceremonia y hasta dos invitados. Generaremos códigos
+            QR únicos y mantendremos sincronizados los ingresos incluso sin conexión.
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -106,10 +98,10 @@ export const CsvUploader = () => {
           Formato esperado de columnas: <code className="font-mono text-emerald-300">{templateHeaders.join(', ')}</code>
         </p>
         <ul className="grid gap-2 text-xs text-slate-400 sm:grid-cols-2">
-          <li>- Máximo dos invitados por estudiante.</li>
-          <li>- Incluye el identificador exacto de la ceremonia.</li>
-          <li>- Programa académico requerido para cada estudiante.</li>
-          <li>- Los QR se generan y guardan automáticamente.</li>
+          <li>- Utiliza un ID de estudiante único por ceremonia.</li>
+          <li>- El ID de ceremonia debe coincidir con la configuración definida en el sistema.</li>
+          <li>- Incluye fecha de ceremonia en formato ISO (YYYY-MM-DD) y municipio.</li>
+          <li>- Los datos de invitados son opcionales; deja la celda vacía si no aplica.</li>
         </ul>
       </div>
 

@@ -20,10 +20,12 @@ const filterStudents = (students: Student[], query: string) => {
 
   return students.filter((student) => {
     if (
-      student.studentId.toLowerCase().includes(normalised) ||
-      student.fullName.toLowerCase().includes(normalised) ||
-      (student.programName ?? '').toLowerCase().includes(normalised) ||
-      student.documentNumber.toLowerCase().includes(normalised)
+      student.idEstudiante.toLowerCase().includes(normalised) ||
+      student.nombreCompleto.toLowerCase().includes(normalised) ||
+      student.programa.toLowerCase().includes(normalised) ||
+      student.numeroDocumento.toLowerCase().includes(normalised) ||
+      student.municipio.toLowerCase().includes(normalised) ||
+      student.fechaCeremonia.toLowerCase().includes(normalised)
     ) {
       return true;
     }
@@ -35,6 +37,16 @@ const filterStudents = (students: Student[], query: string) => {
       );
     });
   });
+};
+
+const filterInviteesByCeremony = (invitees: Invitee[], ceremonyId?: string) => {
+  if (!ceremonyId) return invitees;
+  return invitees.filter((invitee) => invitee.ceremonyId === ceremonyId);
+};
+
+const filterStudentsByCeremony = (students: Student[], ceremonyId?: string) => {
+  if (!ceremonyId) return students;
+  return students.filter((student) => student.idCeremonia === ceremonyId);
 };
 
 export const AccessControlPanel = () => {
@@ -58,24 +70,35 @@ export const AccessControlPanel = () => {
     [ceremonies, selectedCeremonyId],
   );
 
+  const inviteesForCeremony = useMemo(
+    () => filterInviteesByCeremony(invitees, selectedCeremonyId),
+    [invitees, selectedCeremonyId],
+  );
+
+  const studentsForCeremony = useMemo(
+    () => filterStudentsByCeremony(students, selectedCeremonyId),
+    [students, selectedCeremonyId],
+  );
+
   const selectedStudent = useMemo(
-    () => students.find((item) => item.studentId === selectedStudentId),
+    () => students.find((item) => item.idEstudiante === selectedStudentId),
     [students, selectedStudentId],
   );
 
+  const checkInsForCeremony = useMemo(() => checkIns.filter((log) => log.ceremonyId === selectedCeremonyId), [checkIns, selectedCeremonyId]);
   const alreadyCheckedIds = useMemo(
-    () => new Set(checkIns.map((log) => log.inviteeId)),
-    [checkIns],
+    () => new Set(checkInsForCeremony.map((log) => log.inviteeId)),
+    [checkInsForCeremony],
   );
 
   const filteredStudents = useMemo(
-    () => filterStudents(students, query).slice(0, 6),
-    [students, query],
+    () => filterStudents(studentsForCeremony, query).slice(0, 6),
+    [studentsForCeremony, query],
   );
 
   const processInvitee = useCallback(
     async (invitee: Invitee) => {
-      setSelectedStudentId(invitee.studentId);
+      setSelectedStudentId(invitee.idEstudiante);
       setHighlightInviteeId(invitee.id);
 
       if (alreadyCheckedIds.has(invitee.id)) {
@@ -243,7 +266,7 @@ export const AccessControlPanel = () => {
         <div>
           <h2 className="text-lg font-semibold text-white">Control de acceso</h2>
           <p className="text-sm text-slate-300">
-            Escanea códigos QR en tiempo real o ubica asistentes por nombre, documento o código.
+            Escanea códigos QR en tiempo real o ubica asistentes por nombre, documento, programa o municipio.
           </p>
         </div>
         <button
@@ -289,7 +312,7 @@ export const AccessControlPanel = () => {
         <div className="space-y-4">
           <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
             <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Búsqueda manual (ID, estudiante o invitado)
+              Búsqueda manual (ID, estudiante, invitado, programa o municipio)
             </label>
             <div className="mt-2 flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-950/70 px-3">
               <Search className="h-4 w-4 text-slate-500" />
@@ -299,7 +322,7 @@ export const AccessControlPanel = () => {
                   setQuery(event.target.value);
                   setHighlightInviteeId(undefined);
                 }}
-                placeholder="Nombre, código, documento o programa"
+                placeholder="Nombre, código, documento, programa o municipio"
                 className="h-10 flex-1 bg-transparent text-sm text-white placeholder:text-slate-500 focus:outline-none"
               />
             </div>
@@ -311,14 +334,17 @@ export const AccessControlPanel = () => {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-medium text-white">{student.fullName}</p>
+                      <p className="font-medium text-white">{student.nombreCompleto}</p>
                       <p className="text-xs text-slate-400">
-                        {student.studentId} · {student.programName ?? 'Programa sin registrar'}
+                        {student.idEstudiante} · {student.programa || 'Programa sin registrar'}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {student.fechaCeremonia} · {student.municipio || 'Municipio sin registrar'}
                       </p>
                     </div>
                     <button
                       onClick={() => {
-                        setSelectedStudentId(student.studentId);
+                        setSelectedStudentId(student.idEstudiante);
                         setHighlightInviteeId(undefined);
                       }}
                       className="text-xs font-semibold text-emerald-300 hover:text-emerald-100"
@@ -341,9 +367,12 @@ export const AccessControlPanel = () => {
               <div className="space-y-4">
                 <div>
                   <p className="text-xs uppercase tracking-wide text-slate-400">Resumen del estudiante</p>
-                  <h3 className="mt-1 text-lg font-semibold text-white">{selectedStudent.fullName}</h3>
+                  <h3 className="mt-1 text-lg font-semibold text-white">{selectedStudent.nombreCompleto}</h3>
                   <p className="text-xs text-slate-400">
-                    ID {selectedStudent.studentId} · Programa {selectedStudent.programName ?? 'N/D'} · Documento {selectedStudent.documentNumber}
+                    ID {selectedStudent.idEstudiante} · Programa {selectedStudent.programa || 'N/D'} · Documento {selectedStudent.numeroDocumento}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {selectedStudent.fechaCeremonia} · {selectedStudent.municipio || 'Municipio sin registrar'}
                   </p>
                 </div>
                 <ul className="space-y-2">
@@ -393,10 +422,10 @@ export const AccessControlPanel = () => {
               <span className="font-semibold text-white">Ceremonia:</span> {ceremony?.name ?? 'Sin definir'}
             </p>
             <p>
-              <span className="font-semibold text-white">Ingresos totales:</span> {checkIns.length}
+              <span className="font-semibold text-white">Ingresos totales:</span> {checkInsForCeremony.length}
             </p>
             <p>
-              <span className="font-semibold text-white">Pendientes:</span> {Math.max(invitees.length - checkIns.length, 0)}
+              <span className="font-semibold text-white">Pendientes:</span> {Math.max(inviteesForCeremony.length - checkInsForCeremony.length, 0)}
             </p>
           </div>
         </div>

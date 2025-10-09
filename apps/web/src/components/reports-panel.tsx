@@ -19,9 +19,9 @@ const downloadBlob = (content: BlobPart, filename: string, type: string) => {
 };
 
 const buildInviteeRow = (invitee: Invitee, status: string): string[] => [
-  invitee.studentId,
+  invitee.idEstudiante,
   invitee.name,
-  invitee.programName ?? '',
+  invitee.programa ?? '',
   invitee.role,
   invitee.ticketCode,
   invitee.documentNumber ?? '',
@@ -57,7 +57,7 @@ export const ReportsPanel = () => {
   const pendingInvitees = invitees.filter((invitee) => !checkedMap.has(invitee.id));
 
   const exportCsv = () => {
-    const header = ['studentId', 'nombre', 'programa', 'rol', 'ticket', 'documento', 'estado'];
+    const header = ['idEstudiante', 'nombre', 'programa', 'municipio', 'fechaCeremonia', 'rol', 'ticket', 'documento', 'estado'];
     const rows = [header];
     checkedInvitees.forEach((invitee) => rows.push(buildInviteeRow(invitee, 'Ingresó')));
     pendingInvitees.forEach((invitee) => rows.push(buildInviteeRow(invitee, 'Pendiente')));
@@ -82,12 +82,12 @@ export const ReportsPanel = () => {
     y += 30;
 
     pdf.setFontSize(9);
-    pdf.text('Nombre | Rol | Programa | Ticket | Estado', margin, y);
+    pdf.text('Nombre | Rol | Programa | Municipio | Fecha | Ticket | Estado', margin, y);
     y += 14;
 
     const renderRows = (inviteeList: Invitee[], status: string) => {
       inviteeList.forEach((invitee) => {
-        const rowText = `${invitee.name} | ${invitee.role} | ${invitee.programName ?? ''} | ${invitee.ticketCode} | ${status}`;
+        const rowText = `${invitee.name} | ${invitee.role} | ${invitee.programa ?? ''} | ${invitee.ticketCode} | ${status}`;
         pdf.text(rowText, margin, y, { baseline: 'top' });
         y += 14;
         if (y > 800) {
@@ -145,3 +145,4 @@ export const ReportsPanel = () => {
     </section>
   );
 };
+

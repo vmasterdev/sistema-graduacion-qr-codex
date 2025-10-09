@@ -59,8 +59,8 @@ export const TicketCanvas = forwardRef<HTMLDivElement, TicketCanvasProps>(
             <p className="mt-1 text-lg capitalize text-slate-200">
               {invitee.role === 'student' ? 'Estudiante' : 'Invitado'} · {ceremony?.name}
             </p>
-            {invitee.programName ? (
-              <p className="mt-1 text-sm text-slate-300/80">Programa: {invitee.programName}</p>
+            {invitee.programa ? (
+              <p className="mt-1 text-sm text-slate-300/80">Programa: {invitee.programa}</p>
             ) : null}
           </div>
           <div className="text-sm text-slate-200">

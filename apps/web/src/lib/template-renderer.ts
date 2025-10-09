@@ -20,8 +20,8 @@ export const getTemplateHtml = (
     'invitee.ticketCode': invitee.ticketCode,
     'invitee.role': normaliseRole(invitee.role),
     'invitee.documentNumber': invitee.documentNumber ?? '',
-    'invitee.programName': invitee.programName ?? '',
-    'student.programName': invitee.programName ?? '',
+    'invitee.programa': invitee.programa ?? '',
+    'student.programa': invitee.programa ?? '',
     'ceremony.name': ceremony?.name ?? '',
     'ceremony.venue': ceremony?.venue ?? '',
     'ceremony.date': ceremony ? new Date(ceremony.scheduledAt).toLocaleDateString() : '',
@@ -36,3 +36,4 @@ export const getTemplateHtml = (
 };
 
 export const getTemplateCss = (template: TicketTemplate) => template.cssStyles ?? '';
+

@@ -3,27 +3,31 @@ import { z } from 'zod';
 import { CsvStudentRow } from '@/types';
 
 const CsvRowSchema = z.object({
-  studentId: z.string().min(1, 'ID estudiante requerido'),
-  fullName: z.string().min(1, 'Nombre requerido'),
-  documentNumber: z.string().min(1, 'Documento requerido'),
-  programName: z.string().min(1, 'Programa requerido'),
-  ceremonyId: z.string().min(1, 'Ceremonia requerida'),
-  guestOneName: z.string().optional(),
-  guestOneDocument: z.string().optional(),
-  guestTwoName: z.string().optional(),
-  guestTwoDocument: z.string().optional(),
+  idEstudiante: z.string().min(1, 'ID de estudiante requerido'),
+  nombreCompleto: z.string().min(1, 'Nombre completo requerido'),
+  numeroDocumento: z.string().min(1, 'Número de documento requerido'),
+  programa: z.string().min(1, 'Programa requerido'),
+  idCeremonia: z.string().min(1, 'ID de ceremonia requerido'),
+  fechaCeremonia: z.string().min(1, 'Fecha de ceremonia requerida'),
+  municipio: z.string().min(1, 'Municipio requerido'),
+  nombreInvitadoUno: z.string().optional(),
+  documentoInvitadoUno: z.string().optional(),
+  nombreInvitadoDos: z.string().optional(),
+  documentoInvitadoDos: z.string().optional(),
 });
 
 const expectedHeaders = [
-  'studentId',
-  'fullName',
-  'documentNumber',
-  'programName',
-  'ceremonyId',
-  'guestOneName',
-  'guestOneDocument',
-  'guestTwoName',
-  'guestTwoDocument',
+  'idEstudiante',
+  'nombreCompleto',
+  'numeroDocumento',
+  'idCeremonia',
+  'fechaCeremonia',
+  'municipio',
+  'nombreInvitadoUno',
+  'documentoInvitadoUno',
+  'nombreInvitadoDos',
+  'documentoInvitadoDos',
+  'programa',
 ] as const;
 
 const normaliseHeader = (header: string) => header.replace(/^\ufeff/, '').trim();
