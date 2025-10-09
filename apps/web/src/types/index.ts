@@ -13,6 +13,7 @@ export interface CsvStudentRow {
   studentId: string;
   fullName: string;
   documentNumber: string;
+  programName: string;
   ceremonyId: string;
   guestOneName?: string;
   guestOneDocument?: string;
@@ -56,6 +57,7 @@ export interface Invitee {
   ticketCode: string;
   role: TicketRole;
   studentId: string;
+  programName?: string;
   guestIndex?: number;
   qrCode: string;
   createdAt: string;
@@ -67,6 +69,7 @@ export interface Student {
   studentId: string;
   fullName: string;
   documentNumber: string;
+  programName: string;
   ceremonyId: string;
   invitees: Invitee[];
   createdAt: string;
@@ -97,4 +100,3 @@ export interface PendingSyncRecord extends OfflineCheckInPayload {
   retryCount: number;
   lastTriedAt?: string;
 }
-

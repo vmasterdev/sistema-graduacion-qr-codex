@@ -20,6 +20,7 @@ interface StudentPayload {
   studentId: string;
   fullName: string;
   documentNumber: string;
+  programName: string;
   ceremonyId: string;
   guests: Array<{ name: string; documentNumber?: string }>;
 }
@@ -102,6 +103,7 @@ app.post('/tickets/import', async (request, response) => {
     batch.set(studentRef, {
       fullName: student.fullName,
       documentNumber: student.documentNumber,
+      programName: student.programName,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
@@ -128,6 +130,7 @@ app.post('/tickets/import', async (request, response) => {
         ticketCode,
         role: invitee.role,
         documentNumber: invitee.documentNumber ?? null,
+        programName: student.programName,
         qrCode: null,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
@@ -159,5 +162,3 @@ export const generateQr = onCall<{ value: string }>(async (request) => {
     throw new HttpsError('internal', 'No se pudo generar el QR');
   }
 });
-
-

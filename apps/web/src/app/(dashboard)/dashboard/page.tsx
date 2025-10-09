@@ -1,4 +1,5 @@
-﻿import { CeremonySelector } from '@/components/ceremony-selector';
+﻿import Link from 'next/link';
+import { CeremonySelector } from '@/components/ceremony-selector';
 import { StatsOverview } from '@/components/stats-overview';
 import { CsvUploader } from '@/components/csv-uploader';
 import { TemplateDesigner } from '@/components/template-designer';
@@ -20,6 +21,14 @@ export default function DashboardPage() {
               Diseña tarjetas personalizadas, genera QR únicos, controla accesos desde el móvil y sincroniza la asistencia en
               tiempo real incluso sin conexión.
             </p>
+            <div className="flex flex-wrap gap-2 pt-2">
+              <Link
+                href="/control-acceso"
+                className="inline-flex items-center gap-2 rounded-full border border-emerald-400/60 px-4 py-2 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
+              >
+                Ir a control de acceso
+              </Link>
+            </div>
           </div>
           <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-6 text-sm text-emerald-100">
             <p className="text-xs uppercase tracking-wide text-emerald-300">Rendimiento garantizado</p>

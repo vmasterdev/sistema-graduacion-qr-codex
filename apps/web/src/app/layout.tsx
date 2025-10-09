@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { AppProviders } from './providers';
 import { ServiceWorkerInitializer } from '@/components/service-worker-initializer';
+import { TopNav } from '@/components/top-nav';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -30,6 +31,7 @@ export default function RootLayout({
       <body className="min-h-screen bg-slate-950 text-slate-100 antialiased">
         <AppProviders>
           <ServiceWorkerInitializer />
+          <TopNav />
           {children}
         </AppProviders>
       </body>
