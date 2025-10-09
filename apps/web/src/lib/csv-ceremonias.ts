@@ -1,13 +1,36 @@
 import Papa from 'papaparse';
 import { CABECERA_CEREMONIAS, CeremoniaCsvRow, CeremoniaCsvSchema } from '@/types/ceremonia-import';
 
-const normalizar = (encabezado: string) => encabezado.replace(/^\ufeff/, '').trim();
+const normalizar = (encabezado: string) => {
+  const sinBom = encabezado.replace(/^\ufeff/, '').trim();
+  if (sinBom.startsWith('"') && sinBom.endsWith('"')) {
+    return sinBom.slice(1, -1).trim();
+  }
+  return sinBom;
+};
+
+const detectarDelimitador = (linea: string) => {
+  const candidatos = [',', ';', '\t', '|'] as const;
+  for (const candidato of candidatos) {
+    const columnas = linea.split(candidato).map(normalizar);
+    if (columnas.length === CABECERA_CEREMONIAS.length) {
+      return { delimitador: candidato, columnas };
+    }
+  }
+
+  const columnasPorDefecto = linea.split(',').map(normalizar);
+  const delimitador = columnasPorDefecto.length > 1 ? ',' : undefined;
+  return { delimitador, columnas: columnasPorDefecto };
+};
 
 export const parsearCsvCeremoniasProtegidas = async (archivo: File): Promise<CeremoniaCsvRow[]> => {
   const texto = await archivo.text();
+  let delimitadorDetectado: string | undefined;
+
   const [lineaEncabezado] = texto.split(/\r?\n/, 1);
   if (lineaEncabezado) {
-    const columnas = lineaEncabezado.split(',').map(normalizar);
+    const { delimitador, columnas } = detectarDelimitador(lineaEncabezado);
+    delimitadorDetectado = delimitador;
     const longitudValida = columnas.length === CABECERA_CEREMONIAS.length;
     const ordenValido = columnas.every((columna, indice) => columna === CABECERA_CEREMONIAS[indice]);
     if (!longitudValida || !ordenValido) {
@@ -20,6 +43,7 @@ export const parsearCsvCeremoniasProtegidas = async (archivo: File): Promise<Cer
     skipEmptyLines: true,
     transformHeader: normalizar,
     transform: (valor) => (valor ?? '').trim(),
+    delimiter: delimitadorDetectado,
   });
 
   if (errors.length) {
