@@ -16,10 +16,31 @@ export default function ImportarCeremoniasPage() {
   const [estaProcesando, setEstaProcesando] = useState(false);
   const [mensaje, setMensaje] = useState<string>();
   const [esError, setEsError] = useState(false);
+  const [idCeremonia, setIdCeremonia] = useState('');
+  const [nombreCeremonia, setNombreCeremonia] = useState('');
+  const [fechaCeremonia, setFechaCeremonia] = useState('');
+  const [lugarCeremonia, setLugarCeremonia] = useState('');
+  const [descripcion, setDescripcion] = useState('');
+  const [estaCreando, setEstaCreando] = useState(false);
+  const [mensajeManual, setMensajeManual] = useState<string>();
+  const [esErrorManual, setEsErrorManual] = useState(false);
 
   const puedeEnviar = useMemo(
     () => Boolean(usuario && contrasena && archivo && !estaProcesando),
     [usuario, contrasena, archivo, estaProcesando],
+  );
+  const puedeCrearManual = useMemo(
+    () =>
+      Boolean(
+        usuario &&
+          contrasena &&
+          idCeremonia &&
+          nombreCeremonia &&
+          fechaCeremonia &&
+          lugarCeremonia &&
+          !estaCreando,
+      ),
+    [usuario, contrasena, idCeremonia, nombreCeremonia, fechaCeremonia, lugarCeremonia, estaCreando],
   );
 
   const manejarDescargaPlantilla = () => {
@@ -80,6 +101,51 @@ export default function ImportarCeremoniasPage() {
     }
   };
 
+  const manejarCreacionManual = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setEstaCreando(true);
+    setMensajeManual(undefined);
+    setEsErrorManual(false);
+
+    const registros: CeremoniaCsvRow[] = [
+      {
+        id_ceremonia: idCeremonia,
+        nombre_ceremonia: nombreCeremonia,
+        fecha_ceremonia: fechaCeremonia,
+        lugar_ceremonia: lugarCeremonia,
+        descripcion: descripcion || undefined,
+      },
+    ];
+
+    try {
+      const respuesta = await fetch('/api/admin/import-ceremonias', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Basic ${btoa(`${usuario}:${contrasena}`)}`,
+        },
+        body: crearPayload(registros),
+      });
+
+      if (!respuesta.ok) {
+        const texto = await respuesta.text();
+        throw new Error(texto || 'No fue posible crear la ceremonia.');
+      }
+
+      setMensajeManual('Ceremonia creada correctamente.');
+      setIdCeremonia('');
+      setNombreCeremonia('');
+      setFechaCeremonia('');
+      setLugarCeremonia('');
+      setDescripcion('');
+    } catch (error) {
+      setEsErrorManual(true);
+      setMensajeManual(error instanceof Error ? error.message : 'Se produjo un error inesperado.');
+    } finally {
+      setEstaCreando(false);
+    }
+  };
+
   return (
     <main className="mx-auto flex min-h-screen max-w-4xl flex-col gap-8 px-4 pb-24 pt-12 md:px-8">
       <section className="rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-8 text-slate-200 shadow-[0_20px_60px_rgba(15,23,42,0.35)]">
@@ -96,27 +162,29 @@ export default function ImportarCeremoniasPage() {
         </div>
       </section>
 
-      <form onSubmit={manejarEnvio} className="space-y-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-6 shadow-lg">
+      <section className="space-y-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-6 shadow-lg">
+        <div className="flex flex-col gap-3">
+          <h2 className="text-xl font-semibold text-white">Credenciales de acceso</h2>
+          <p className="text-sm text-slate-300">Ingresa el usuario y contraseña autorizados para operar en este módulo protegido.</p>
+        </div>
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <label htmlFor="usuario" className="text-xs font-semibold uppercase tracking-wide text-slate-400">Usuario</label>
+            <label htmlFor="usuarioImport" className="text-xs font-semibold uppercase tracking-wide text-slate-400">Usuario</label>
             <input
-              id="usuario"
+              id="usuarioImport"
               value={usuario}
               onChange={(event) => setUsuario(event.target.value)}
-              required
               className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950/70 px-3 text-sm text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none"
               placeholder="admin"
               autoComplete="username"
             />
           </div>
           <div className="space-y-2">
-            <label htmlFor="contrasena" className="text-xs font-semibold uppercase tracking-wide text-slate-400">Contraseña</label>
+            <label htmlFor="contrasenaImport" className="text-xs font-semibold uppercase tracking-wide text-slate-400">Contraseña</label>
             <input
-              id="contrasena"
+              id="contrasenaImport"
               value={contrasena}
               onChange={(event) => setContrasena(event.target.value)}
-              required
               type="password"
               className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950/70 px-3 text-sm text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none"
               placeholder="******"
@@ -124,6 +192,9 @@ export default function ImportarCeremoniasPage() {
             />
           </div>
         </div>
+      </section>
+
+      <form onSubmit={manejarEnvio} className="space-y-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-6 shadow-lg">
 
         <div className="space-y-2">
           <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">Archivo CSV</label>
@@ -159,6 +230,91 @@ export default function ImportarCeremoniasPage() {
           >
             {estaProcesando ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             Importar ceremonias
+          </button>
+        </div>
+      </form>
+
+      <form onSubmit={manejarCreacionManual} className="space-y-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-6 shadow-lg">
+        <div className="flex flex-col gap-3">
+          <h2 className="text-xl font-semibold text-white">Crear ceremonia protegida</h2>
+          <p className="text-sm text-slate-300">Registra una ceremonia individual desde el panel con las mismas credenciales protegidas.</p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <label htmlFor="idCeremonia" className="text-xs font-semibold uppercase tracking-wide text-slate-400">ID de ceremonia</label>
+            <input
+              id="idCeremonia"
+              value={idCeremonia}
+              onChange={(event) => setIdCeremonia(event.target.value)}
+              required
+              className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950/70 px-3 text-sm text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none"
+              placeholder="CER-001"
+            />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="nombreCeremonia" className="text-xs font-semibold uppercase tracking-wide text-slate-400">Nombre</label>
+            <input
+              id="nombreCeremonia"
+              value={nombreCeremonia}
+              onChange={(event) => setNombreCeremonia(event.target.value)}
+              required
+              className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950/70 px-3 text-sm text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none"
+              placeholder="Ceremonia de graduacion"
+            />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="fechaCeremonia" className="text-xs font-semibold uppercase tracking-wide text-slate-400">Fecha</label>
+            <input
+              id="fechaCeremonia"
+              value={fechaCeremonia}
+              onChange={(event) => setFechaCeremonia(event.target.value)}
+              required
+              className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950/70 px-3 text-sm text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none"
+              placeholder="2024-08-15"
+            />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="lugarCeremonia" className="text-xs font-semibold uppercase tracking-wide text-slate-400">Lugar</label>
+            <input
+              id="lugarCeremonia"
+              value={lugarCeremonia}
+              onChange={(event) => setLugarCeremonia(event.target.value)}
+              required
+              className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950/70 px-3 text-sm text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none"
+              placeholder="Auditorio principal"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="descripcionCeremonia" className="text-xs font-semibold uppercase tracking-wide text-slate-400">Descripcion (opcional)</label>
+          <textarea
+            id="descripcionCeremonia"
+            value={descripcion}
+            onChange={(event) => setDescripcion(event.target.value)}
+            rows={3}
+            className="w-full rounded-xl border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none"
+            placeholder="Incluye detalles adicionales si aplica."
+          />
+        </div>
+
+        {mensajeManual && (
+          <div
+            className={`rounded-xl border px-4 py-3 text-sm ${esErrorManual ? 'border-rose-500/60 bg-rose-500/15 text-rose-200' : 'border-emerald-500/60 bg-emerald-500/15 text-emerald-200'}`}
+          >
+            {mensajeManual}
+          </div>
+        )}
+
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            disabled={!puedeCrearManual}
+            className="inline-flex items-center gap-2 rounded-full border border-emerald-500/60 bg-emerald-500/10 px-5 py-2 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {estaCreando ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            Crear ceremonia
           </button>
         </div>
       </form>
