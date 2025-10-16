@@ -4,6 +4,7 @@ import { FormEvent, useMemo, useState } from 'react';
 import { Loader2, Lock } from 'lucide-react';
 import { CABECERA_CEREMONIAS, CeremoniaCsvRow } from '@/types/ceremonia-import';
 import { parsearCsvCeremoniasProtegidas } from '@/lib/csv-ceremonias';
+import { getFunctionsUrl } from '@/lib/config';
 
 const mensajeEncabezado = CABECERA_CEREMONIAS.join(', ');
 
@@ -77,7 +78,8 @@ export default function ImportarCeremoniasPage() {
         throw new Error('El archivo no contiene filas validas.');
       }
 
-      const respuesta = await fetch('/api/admin/import-ceremonias', {
+      const endpoint = getFunctionsUrl('/ceremonies/import');
+      const respuesta = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -118,7 +120,8 @@ export default function ImportarCeremoniasPage() {
     ];
 
     try {
-      const respuesta = await fetch('/api/admin/import-ceremonias', {
+      const endpoint = getFunctionsUrl('/ceremonies/import');
+      const respuesta = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

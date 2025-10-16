@@ -30,6 +30,14 @@ interface StudentPayload {
   documentoInvitadoDos?: string;
 }
 
+interface CeremoniaPayload {
+  id_ceremonia: string;
+  nombre_ceremonia: string;
+  fecha_ceremonia: string;
+  lugar_ceremonia: string;
+  descripcion?: string;
+}
+
 setGlobalOptions({ region: 'us-central1' });
 
 if (!admin.apps.length) {
@@ -40,6 +48,63 @@ const db = admin.firestore();
 const app = express();
 app.use(cors({ origin: true }));
 app.use(express.json());
+
+const CEREMONIAS_USER = process.env.CEREMONIAS_IMPORT_USER ?? 'vanmaster';
+const CEREMONIAS_PASS = process.env.CEREMONIAS_IMPORT_PASS ?? 'Vanmaster2025*';
+const MAX_CEREMONIAS_BATCH = 500;
+
+const isAuthorized = (authorizationHeader?: string) => {
+  if (!authorizationHeader || !authorizationHeader.startsWith('Basic ')) {
+    return false;
+  }
+  const base64 = authorizationHeader.replace('Basic ', '').trim();
+  const decoded = Buffer.from(base64, 'base64').toString('utf8');
+  const [user, pass] = decoded.split(':');
+  return Boolean(user && pass && user === CEREMONIAS_USER && pass === CEREMONIAS_PASS);
+};
+
+const normalizeCeremoniesPayload = (payload: unknown): CeremoniaPayload[] => {
+  if (!payload || typeof payload !== 'object' || !Array.isArray((payload as { ceremonias?: unknown[] }).ceremonias)) {
+    throw new Error('Formato JSON invalido.');
+  }
+
+  const ceremonias = (payload as { ceremonias: unknown[] }).ceremonias;
+  if (ceremonias.length > MAX_CEREMONIAS_BATCH) {
+    throw new Error(`Maximo ${MAX_CEREMONIAS_BATCH} ceremonias por solicitud.`);
+  }
+
+  return ceremonias.map((item, index) => {
+    if (!item || typeof item !== 'object') {
+      throw new Error(`Fila ${index + 2}: Formato invalido.`);
+    }
+
+    const data = item as Record<string, unknown>;
+
+    const getRequired = (key: keyof CeremoniaPayload, label: string) => {
+      const value = data[key];
+      if (typeof value !== 'string' || !value.trim()) {
+        throw new Error(`Fila ${index + 2}: ${label}`);
+      }
+      return value.trim();
+    };
+
+    const id_ceremonia = getRequired('id_ceremonia', 'id_ceremonia requerido');
+    const nombre_ceremonia = getRequired('nombre_ceremonia', 'nombre_ceremonia requerido');
+    const fecha_ceremonia = getRequired('fecha_ceremonia', 'fecha_ceremonia requerida');
+    const lugar_ceremonia = getRequired('lugar_ceremonia', 'lugar_ceremonia requerido');
+
+    const descripcionValue = data.descripcion;
+    const descripcion = typeof descripcionValue === 'string' && descripcionValue.trim() ? descripcionValue.trim() : undefined;
+
+    return {
+      id_ceremonia,
+      nombre_ceremonia,
+      fecha_ceremonia,
+      lugar_ceremonia,
+      ...(descripcion ? { descripcion } : {}),
+    };
+  });
+};
 
 const writeCheckIn = async (payload: InviteePayload) => {
   const checkInRef = db
@@ -91,6 +156,102 @@ app.post('/sync-checkins', async (request, response) => {
   } catch (error) {
     logger.error('Error sincronizando check-in', error);
     response.status(500).json({ message: 'Error interno' });
+  }
+});
+
+app.post('/ceremonies/import', async (request, response) => {
+  if (!isAuthorized(request.headers.authorization ?? undefined)) {
+    response.status(401).send('Credenciales invalidas');
+    return;
+  }
+
+  let ceremonias: CeremoniaPayload[];
+  try {
+    ceremonias = normalizeCeremoniesPayload(request.body);
+  } catch (error) {
+    logger.warn('Payload invalido en importacion de ceremonias', error);
+    response.status(400).send(error instanceof Error ? error.message : 'Payload invalido.');
+    return;
+  }
+
+  if (!ceremonias.length) {
+    response.json({ ok: true, total: 0 });
+    return;
+  }
+
+  const marcaDeTiempo = new Date().toISOString();
+  const batch = db.batch();
+
+  ceremonias.forEach((ceremonia) => {
+    const ref = db.collection('ceremonias').doc(ceremonia.id_ceremonia);
+    batch.set(
+      ref,
+      {
+        id_ceremonia: ceremonia.id_ceremonia,
+        nombre_ceremonia: ceremonia.nombre_ceremonia,
+        fecha_ceremonia: ceremonia.fecha_ceremonia,
+        lugar_ceremonia: ceremonia.lugar_ceremonia,
+        descripcion: ceremonia.descripcion ?? null,
+        creado_en: marcaDeTiempo,
+        actualizado_en: marcaDeTiempo,
+      },
+      { merge: true },
+    );
+  });
+
+  try {
+    await batch.commit();
+    response.json({ ok: true, total: ceremonias.length });
+  } catch (error) {
+    logger.error('Error importando ceremonias', error);
+    response.status(500).json({ message: 'Error al importar ceremonias' });
+  }
+});
+
+app.delete('/ceremonies/:ceremonyId', async (request, response) => {
+  if (!isAuthorized(request.headers.authorization ?? undefined)) {
+    response.status(401).send('Credenciales invalidas');
+    return;
+  }
+
+  const { ceremonyId } = request.params;
+  if (!ceremonyId) {
+    response.status(400).send('ceremonyId requerido');
+    return;
+  }
+
+  try {
+    await db.collection('ceremonias').doc(ceremonyId).delete();
+    response.json({ ok: true });
+  } catch (error) {
+    logger.error('Error eliminando ceremonia', error);
+    response.status(500).json({ message: 'Error al eliminar ceremonia' });
+  }
+});
+
+app.delete('/ceremonies/:ceremonyId/checkins/:inviteeId', async (request, response) => {
+  if (!isAuthorized(request.headers.authorization ?? undefined)) {
+    response.status(401).send('Credenciales invalidas');
+    return;
+  }
+
+  const { ceremonyId, inviteeId } = request.params;
+  if (!ceremonyId || !inviteeId) {
+    response.status(400).send('ceremonyId e inviteeId requeridos');
+    return;
+  }
+
+  try {
+    await db
+      .collection('ceremonies')
+      .doc(ceremonyId)
+      .collection('checkins')
+      .doc(inviteeId)
+      .delete();
+    response.json({ ok: true });
+  } catch (error) {
+    logger.error('Error eliminando check-in', error);
+    response.status(500).json({ message: 'Error al eliminar check-in' });
   }
 });
 

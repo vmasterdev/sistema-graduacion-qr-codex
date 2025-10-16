@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { deletePendingCheckIn, getPendingCheckIns, markRetry } from '@/lib/offlineQueue';
 import { getAppCheckToken, initAppCheck } from '@/lib/firebase';
+import { getFunctionsUrl } from '@/lib/config';
 
 const syncPending = async () => {
   const pending = await getPendingCheckIns();
@@ -10,17 +11,19 @@ const syncPending = async () => {
 
   for (const record of pending) {
     try {
+      const endpoint = getFunctionsUrl('/sync-checkins');
       const appCheckToken = await getAppCheckToken();
-      const response = await fetch('/api/sync-checkins', {
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(appCheckToken ? { 'X-App-Check': appCheckToken } : {}),
+          ...(appCheckToken ? { 'X-Firebase-AppCheck': appCheckToken } : {}),
         },
         body: JSON.stringify(record),
       });
 
       if (!response.ok) {
+        console.error('No se pudo sincronizar check-in', response.status);
         await markRetry(record.id);
         continue;
       }

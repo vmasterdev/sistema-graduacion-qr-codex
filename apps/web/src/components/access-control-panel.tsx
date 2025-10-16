@@ -6,6 +6,7 @@ import type { Exception, Result } from '@zxing/library';
 import { Camera, CheckCircle2, RefreshCw, Search, XCircle } from 'lucide-react';
 import { queueCheckIn } from '@/lib/offlineQueue';
 import { getAppCheckToken } from '@/lib/firebase';
+import { getFunctionsUrl } from '@/lib/config';
 import { useDashboardStore } from '@/hooks/use-dashboard-store';
 import type { AccessLog, Invitee, Student } from '@/types';
 
@@ -137,17 +138,19 @@ export const AccessControlPanel = () => {
       };
 
       try {
+        const endpoint = getFunctionsUrl('/checkins');
         const appCheckToken = await getAppCheckToken();
-        const response = await fetch('/api/checkins', {
+        const response = await fetch(endpoint, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(appCheckToken ? { 'X-App-Check': appCheckToken } : {}),
+            ...(appCheckToken ? { 'X-Firebase-AppCheck': appCheckToken } : {}),
           },
           body: JSON.stringify(record),
         });
 
         if (!response.ok) {
+          console.error('Respuesta no exitosa al registrar check-in', response.status);
           await enqueueOffline();
         }
       } catch (error) {
