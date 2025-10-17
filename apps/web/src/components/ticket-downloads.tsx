@@ -30,7 +30,7 @@ export const TicketDownloads = () => {
   const selectedCeremonyId = useDashboardStore((state) => state.selectedCeremonyId);
   const selectedTemplateId = useDashboardStore((state) => state.selectedTemplateId);
 
-  const supabaseRef = useRef<ReturnType<typeof getSupabaseBrowserClient>>();
+  const supabaseRef = useRef<ReturnType<typeof getSupabaseBrowserClient> | null>(null);
 
   const getSupabase = () => {
     if (!supabaseRef.current) {
