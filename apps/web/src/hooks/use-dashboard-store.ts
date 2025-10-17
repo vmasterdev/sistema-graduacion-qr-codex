@@ -12,6 +12,8 @@ import {
   TicketTemplate,
 } from '@/types';
 import { createQrDataUrl, generateTicketCode, mapInviteeToTicket } from '@/lib/tickets';
+import { appConfig } from '@/lib/config';
+import { fetchCeremonySnapshot } from '@/lib/supabase-data';
 
 interface DashboardState {
   ceremonies: Ceremony[];
@@ -32,6 +34,8 @@ interface DashboardState {
   setImportError: (message?: string) => void;
   markTicketDownloaded: (inviteeId: string, url: string) => void;
   appendCheckIn: (record: AccessLog) => void;
+  setCheckIns: (records: AccessLog[]) => void;
+  refreshCeremonyData: (ceremonyId: string) => Promise<void>;
 }
 
 export const useDashboardStore = create<DashboardState>()(
@@ -67,6 +71,49 @@ export const useDashboardStore = create<DashboardState>()(
 
       set({ isProcessingCsv: true, importError: undefined });
       try {
+        if (appConfig.supabaseUrl && appConfig.supabaseAnonKey) {
+          const rowsWithCeremony = rows.map((row, index) => {
+            if (row.idCeremonia?.trim()) {
+              return row;
+            }
+            if (!selectedCeremonyId) {
+              throw new Error(
+                `Fila ${index + 2}: falta idCeremonia y no hay ceremonia seleccionada para aplicar por defecto.`,
+              );
+            }
+            return { ...row, idCeremonia: selectedCeremonyId };
+          });
+
+          const ceremonyIds = new Set<string>();
+          rowsWithCeremony.forEach((row) => {
+            if (row.idCeremonia) {
+              ceremonyIds.add(row.idCeremonia.trim());
+            }
+          });
+
+          const response = await fetch('/api/students/import', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ rows: rowsWithCeremony }),
+          });
+
+          if (!response.ok) {
+            const payload = await response.json().catch(() => null);
+            const message =
+              typeof payload?.error === 'string'
+                ? payload.error
+                : `No fue posible importar estudiantes (${response.status}).`;
+            throw new Error(message);
+          }
+
+          for (const ceremonyId of ceremonyIds) {
+            await get().refreshCeremonyData(ceremonyId);
+          }
+          return;
+        }
+
         const students: Student[] = [];
         const invitees: Invitee[] = [];
 
@@ -199,6 +246,29 @@ export const useDashboardStore = create<DashboardState>()(
         return;
       }
       set({ checkIns: [...current, record] });
+    },
+    setCheckIns: (records) => set({ checkIns: records }),
+    refreshCeremonyData: async (ceremonyId) => {
+      if (!appConfig.supabaseUrl || !appConfig.supabaseAnonKey) {
+        return;
+      }
+
+      const { templates, selectedTemplateId } = get();
+      const { students, invitees } = await fetchCeremonySnapshot(ceremonyId);
+
+      let ticketAssignments: TicketAssignment[] = [];
+      if (selectedTemplateId) {
+        const template = templates.find((item) => item.id === selectedTemplateId);
+        if (template) {
+          ticketAssignments = await Promise.all(invitees.map((invitee) => mapInviteeToTicket(invitee, template)));
+        }
+      }
+
+      set({
+        students,
+        invitees,
+        ticketAssignments,
+      });
     },
   })),
 );

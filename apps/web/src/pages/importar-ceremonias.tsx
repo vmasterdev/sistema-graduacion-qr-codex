@@ -4,11 +4,9 @@ import { FormEvent, useMemo, useState } from 'react';
 import { Loader2, Lock } from 'lucide-react';
 import { CABECERA_CEREMONIAS, CeremoniaCsvRow } from '@/types/ceremonia-import';
 import { parsearCsvCeremoniasProtegidas } from '@/lib/csv-ceremonias';
-import { getFunctionsUrl } from '@/lib/config';
+import { importarCeremoniasProtegidas } from '@/lib/ceremonias-service';
 
 const mensajeEncabezado = CABECERA_CEREMONIAS.join(', ');
-
-const crearPayload = (registros: CeremoniaCsvRow[]) => JSON.stringify({ ceremonias: registros });
 
 export default function ImportarCeremoniasPage() {
   const [usuario, setUsuario] = useState('');
@@ -78,22 +76,8 @@ export default function ImportarCeremoniasPage() {
         throw new Error('El archivo no contiene filas validas.');
       }
 
-      const endpoint = getFunctionsUrl('/ceremonies/import');
-      const respuesta = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Basic ${btoa(`${usuario}:${contrasena}`)}`,
-        },
-        body: crearPayload(registros),
-      });
-
-      if (!respuesta.ok) {
-        const texto = await respuesta.text();
-        throw new Error(texto || 'No fue posible importar las ceremonias.');
-      }
-
-      setMensaje(`Ceremonias importadas correctamente: ${registros.length}`);
+      const resultado = await importarCeremoniasProtegidas({ registros, usuario, contrasena });
+      setMensaje(`Ceremonias importadas correctamente: ${resultado.total}`);
       setArchivo(null);
     } catch (error) {
       setEsError(true);
@@ -120,21 +104,7 @@ export default function ImportarCeremoniasPage() {
     ];
 
     try {
-      const endpoint = getFunctionsUrl('/ceremonies/import');
-      const respuesta = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Basic ${btoa(`${usuario}:${contrasena}`)}`,
-        },
-        body: crearPayload(registros),
-      });
-
-      if (!respuesta.ok) {
-        const texto = await respuesta.text();
-        throw new Error(texto || 'No fue posible crear la ceremonia.');
-      }
-
+      await importarCeremoniasProtegidas({ registros, usuario, contrasena });
       setMensajeManual('Ceremonia creada correctamente.');
       setIdCeremonia('');
       setNombreCeremonia('');
@@ -168,17 +138,19 @@ export default function ImportarCeremoniasPage() {
       <section className="space-y-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-6 shadow-lg">
         <div className="flex flex-col gap-3">
           <h2 className="text-xl font-semibold text-white">Credenciales de acceso</h2>
-          <p className="text-sm text-slate-300">Ingresa el usuario y contraseña autorizados para operar en este módulo protegido.</p>
+          <p className="text-sm text-slate-300">
+            Inicia sesión con las credenciales de Supabase asignadas para operar este módulo protegido.
+          </p>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <label htmlFor="usuarioImport" className="text-xs font-semibold uppercase tracking-wide text-slate-400">Usuario</label>
+            <label htmlFor="usuarioImport" className="text-xs font-semibold uppercase tracking-wide text-slate-400">Correo electrónico</label>
             <input
               id="usuarioImport"
               value={usuario}
               onChange={(event) => setUsuario(event.target.value)}
               className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950/70 px-3 text-sm text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none"
-              placeholder="admin"
+              placeholder="admin@dominio.com"
               autoComplete="username"
             />
           </div>

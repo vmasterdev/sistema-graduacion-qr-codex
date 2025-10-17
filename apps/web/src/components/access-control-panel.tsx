@@ -5,8 +5,6 @@ import { BrowserMultiFormatReader } from '@zxing/browser';
 import type { Exception, Result } from '@zxing/library';
 import { Camera, CheckCircle2, RefreshCw, Search, XCircle } from 'lucide-react';
 import { queueCheckIn } from '@/lib/offlineQueue';
-import { getAppCheckToken } from '@/lib/firebase';
-import { getFunctionsUrl } from '@/lib/config';
 import { useDashboardStore } from '@/hooks/use-dashboard-store';
 import type { AccessLog, Invitee, Student } from '@/types';
 
@@ -64,6 +62,8 @@ export const AccessControlPanel = () => {
   const ceremonies = useDashboardStore((state) => state.ceremonies);
   const selectedCeremonyId = useDashboardStore((state) => state.selectedCeremonyId);
   const appendCheckIn = useDashboardStore((state) => state.appendCheckIn);
+  const setCheckIns = useDashboardStore((state) => state.setCheckIns);
+  const refreshCeremonyData = useDashboardStore((state) => state.refreshCeremonyData);
   const checkIns = useDashboardStore((state) => state.checkIns);
 
   const ceremony = useMemo(
@@ -96,6 +96,67 @@ export const AccessControlPanel = () => {
     () => filterStudents(studentsForCeremony, query).slice(0, 6),
     [studentsForCeremony, query],
   );
+
+  useEffect(() => {
+    if (!selectedCeremonyId) {
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const loadCheckIns = async () => {
+      try {
+        await refreshCeremonyData(selectedCeremonyId);
+
+        const response = await fetch(`/api/checkins?ceremonyId=${encodeURIComponent(selectedCeremonyId)}`, {
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          console.error('No se pudieron obtener check-ins', response.status);
+          return;
+        }
+
+        const payload = (await response.json()) as {
+          ok?: boolean;
+          items?: Array<{
+            id: string;
+            inviteeId: string;
+            ceremonyId: string;
+            ticketCode: string;
+            scannedAt: string;
+            source: 'scanner' | 'manual';
+            operator?: string | null;
+          }>;
+        };
+
+        if (payload?.ok && Array.isArray(payload.items)) {
+          setCheckIns(
+            payload.items.map<AccessLog>((item) => ({
+              id: item.id,
+              inviteeId: item.inviteeId,
+              ceremonyId: item.ceremonyId,
+              ticketCode: item.ticketCode,
+              scannedAt: item.scannedAt,
+              source: item.source,
+              operator: item.operator ?? 'Sistema',
+            })),
+          );
+        }
+      } catch (error) {
+        if ((error as Error)?.name === 'AbortError') {
+          return;
+        }
+        console.error('Error cargando check-ins', error);
+      }
+    };
+
+    void loadCheckIns();
+
+    return () => {
+      controller.abort();
+    };
+  }, [refreshCeremonyData, selectedCeremonyId, setCheckIns]);
 
   const processInvitee = useCallback(
     async (invitee: Invitee) => {
@@ -138,19 +199,23 @@ export const AccessControlPanel = () => {
       };
 
       try {
-        const endpoint = getFunctionsUrl('/checkins');
-        const appCheckToken = await getAppCheckToken();
-        const response = await fetch(endpoint, {
+        const response = await fetch('/api/checkins', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(appCheckToken ? { 'X-Firebase-AppCheck': appCheckToken } : {}),
           },
           body: JSON.stringify(record),
         });
 
         if (!response.ok) {
           console.error('Respuesta no exitosa al registrar check-in', response.status);
+          await enqueueOffline();
+          return;
+        }
+
+        const payload = (await response.json()) as { ok?: boolean };
+        if (!payload?.ok) {
+          console.error('Respuesta inválida al registrar check-in', payload);
           await enqueueOffline();
         }
       } catch (error) {

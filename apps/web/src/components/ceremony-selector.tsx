@@ -4,6 +4,8 @@ import { useEffect } from 'react';
 import { CalendarDays } from 'lucide-react';
 import { useDashboardStore } from '@/hooks/use-dashboard-store';
 import type { Ceremony } from '@/types';
+import { appConfig } from '@/lib/config';
+import { fetchCeremonies } from '@/lib/supabase-data';
 
 const fallbackCeremonies: Ceremony[] = [
   {
@@ -27,15 +29,47 @@ export const CeremonySelector = () => {
   const selected = useDashboardStore((state) => state.selectedCeremonyId);
   const setCeremonies = useDashboardStore((state) => state.setCeremonies);
   const selectCeremony = useDashboardStore((state) => state.selectCeremony);
+  const refreshCeremonyData = useDashboardStore((state) => state.refreshCeremonyData);
 
   useEffect(() => {
-    if (!ceremonies.length) {
-      setCeremonies(fallbackCeremonies);
-    }
+    let isMounted = true;
+
+    const hydrate = async () => {
+      if (!appConfig.supabaseUrl || !appConfig.supabaseAnonKey) {
+        if (!ceremonies.length) {
+          setCeremonies(fallbackCeremonies);
+        }
+        return;
+      }
+
+      try {
+        const remoteCeremonies = await fetchCeremonies();
+        if (isMounted && remoteCeremonies.length) {
+          setCeremonies(remoteCeremonies);
+        } else if (isMounted && !ceremonies.length) {
+          setCeremonies(fallbackCeremonies);
+        }
+      } catch (error) {
+        console.error('No fue posible obtener ceremonias desde Supabase', error);
+        if (isMounted && !ceremonies.length) {
+          setCeremonies(fallbackCeremonies);
+        }
+      }
+    };
+
+    void hydrate();
+
+    return () => {
+      isMounted = false;
+    };
   }, [ceremonies.length, setCeremonies]);
 
   const handleChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    selectCeremony(event.target.value);
+    const ceremonyId = event.target.value;
+    selectCeremony(ceremonyId);
+    if (appConfig.supabaseUrl && appConfig.supabaseAnonKey) {
+      void refreshCeremonyData(ceremonyId);
+    }
   };
 
   return (

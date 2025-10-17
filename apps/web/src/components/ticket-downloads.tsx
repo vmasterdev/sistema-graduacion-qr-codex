@@ -1,13 +1,14 @@
 ﻿'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import JSZip from 'jszip';
-import { jsPDF } from 'jspdf';
 import { Download, FileArchive, FileImage, Loader2 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { useDashboardStore } from '@/hooks/use-dashboard-store';
 import { TicketCanvas } from '@/components/ticket-canvas';
 import type { Invitee } from '@/types';
+import { uploadTicketImage } from '@/lib/tickets-storage';
+import { getSupabaseBrowserClient } from '@/lib/supabase-client';
+import { appConfig } from '@/lib/config';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -20,15 +21,6 @@ const triggerDownload = (href: string, filename: string) => {
   document.body.removeChild(anchor);
 };
 
-const downloadPdf = async (dataUrl: string, filename: string) => {
-  const pdf = new jsPDF({ orientation: 'landscape', unit: 'px', format: [860, 540] });
-  const imageProps = pdf.getImageProperties(dataUrl);
-  const width = 820;
-  const height = (imageProps.height * width) / imageProps.width;
-  pdf.addImage(dataUrl, 'PNG', 20, 20, width, height);
-  pdf.save(filename);
-};
-
 export const TicketDownloads = () => {
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -37,6 +29,15 @@ export const TicketDownloads = () => {
   const ceremonies = useDashboardStore((state) => state.ceremonies);
   const selectedCeremonyId = useDashboardStore((state) => state.selectedCeremonyId);
   const selectedTemplateId = useDashboardStore((state) => state.selectedTemplateId);
+
+  const supabaseRef = useRef<ReturnType<typeof getSupabaseBrowserClient>>();
+
+  const getSupabase = () => {
+    if (!supabaseRef.current) {
+      supabaseRef.current = getSupabaseBrowserClient();
+    }
+    return supabaseRef.current;
+  };
 
   const ceremony = useMemo(
     () => ceremonies.find((item) => item.id === selectedCeremonyId),
@@ -72,19 +73,66 @@ export const TicketDownloads = () => {
     setPreviewInvitee(invitee);
     await sleep(40);
     if (!canvasRef.current) return undefined;
-    return toPng(canvasRef.current, {
+    const dataUrl = await toPng(canvasRef.current, {
       cacheBust: true,
       pixelRatio: window.devicePixelRatio > 1 ? window.devicePixelRatio : 2,
     });
+    void uploadTicketImage({
+      inviteeId: invitee.id,
+      ceremonyId: invitee.ceremonyId,
+      dataUrl,
+      mimeType: 'image/png',
+    });
+    return dataUrl;
+  };
+
+  const getStoredTicketUrl = async (invitee: Invitee) => {
+    if (!appConfig.supabaseUrl || !appConfig.supabaseTicketsBucket) {
+      return null;
+    }
+
+    const supabase = getSupabase();
+    const path = `${invitee.ceremonyId}/${invitee.id}.png`;
+    const { data } = supabase.storage.from(appConfig.supabaseTicketsBucket).getPublicUrl(path);
+    const publicUrl = data?.publicUrl;
+    if (!publicUrl) {
+      return null;
+    }
+
+    const headResponse = await fetch(publicUrl, { method: 'HEAD' });
+    if (!headResponse.ok) {
+      return null;
+    }
+
+    return publicUrl;
+  };
+
+  const ensureInviteeStored = async (invitee: Invitee) => {
+    const existing = await getStoredTicketUrl(invitee);
+    if (existing) {
+      return existing;
+    }
+
+    const dataUrl = await captureInvitee(invitee);
+    if (!dataUrl) {
+      return null;
+    }
+
+    return (await getStoredTicketUrl(invitee)) ?? dataUrl;
+  };
+
+  const ensureAllStored = async () => {
+    await Promise.all(inviteesForCeremony.map((invitee) => ensureInviteeStored(invitee)));
   };
 
   const handleDownloadPng = async () => {
     if (!ensureReady()) return;
     setIsDownloading(true);
     try {
-      const dataUrl = await captureInvitee(inviteesForCeremony[0]);
-      if (dataUrl) {
-        triggerDownload(dataUrl, `${inviteesForCeremony[0].ticketCode}.png`);
+      const invitee = inviteesForCeremony[0];
+      const storedUrl = await ensureInviteeStored(invitee);
+      if (storedUrl) {
+        triggerDownload(storedUrl, `${invitee.ticketCode}.png`);
       }
     } finally {
       setIsDownloading(false);
@@ -92,32 +140,37 @@ export const TicketDownloads = () => {
   };
 
   const handleDownloadPdf = async () => {
-    if (!ensureReady()) return;
+    if (!ensureReady() || !selectedCeremonyId) return;
     setIsDownloading(true);
     try {
-      const dataUrl = await captureInvitee(inviteesForCeremony[0]);
-      if (dataUrl) {
-        await downloadPdf(dataUrl, `${inviteesForCeremony[0].ticketCode}.pdf`);
+      await ensureAllStored();
+      const response = await fetch(`/api/tickets/batch?ceremonyId=${encodeURIComponent(selectedCeremonyId)}&format=pdf`);
+      if (!response.ok) {
+        console.error('No fue posible generar el PDF', response.status);
+        return;
       }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      triggerDownload(url, `${selectedCeremonyId}-tarjetas.pdf`);
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
     } finally {
       setIsDownloading(false);
     }
   };
 
   const handleDownloadBatch = async () => {
-    if (!ensureReady()) return;
+    if (!ensureReady() || !selectedCeremonyId) return;
     setIsDownloading(true);
     try {
-      const zip = new JSZip();
-      for (const invitee of inviteesForCeremony) {
-        const dataUrl = await captureInvitee(invitee);
-        if (!dataUrl) continue;
-        const base64 = dataUrl.split(',')[1];
-        zip.file(`${invitee.ticketCode}.png`, base64, { base64: true });
+      await ensureAllStored();
+      const response = await fetch(`/api/tickets/batch?ceremonyId=${encodeURIComponent(selectedCeremonyId)}&format=zip`);
+      if (!response.ok) {
+        console.error('No fue posible generar el ZIP', response.status);
+        return;
       }
-      const blob = await zip.generateAsync({ type: 'blob' });
+      const blob = await response.blob();
       const url = URL.createObjectURL(blob);
-      triggerDownload(url, `${ceremony?.id ?? 'ceremonia'}-tarjetas.zip`);
+      triggerDownload(url, `${selectedCeremonyId}-tarjetas.zip`);
       setTimeout(() => URL.revokeObjectURL(url), 4000);
     } finally {
       setIsDownloading(false);

@@ -2,8 +2,6 @@
 
 import { useEffect } from 'react';
 import { deletePendingCheckIn, getPendingCheckIns, markRetry } from '@/lib/offlineQueue';
-import { getAppCheckToken, initAppCheck } from '@/lib/firebase';
-import { getFunctionsUrl } from '@/lib/config';
 
 const syncPending = async () => {
   const pending = await getPendingCheckIns();
@@ -11,19 +9,28 @@ const syncPending = async () => {
 
   for (const record of pending) {
     try {
-      const endpoint = getFunctionsUrl('/sync-checkins');
-      const appCheckToken = await getAppCheckToken();
-      const response = await fetch(endpoint, {
+      const response = await fetch('/api/checkins', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(appCheckToken ? { 'X-Firebase-AppCheck': appCheckToken } : {}),
         },
         body: JSON.stringify(record),
       });
 
       if (!response.ok) {
         console.error('No se pudo sincronizar check-in', response.status);
+        await markRetry(record.id);
+        continue;
+      }
+
+      try {
+        const payload = (await response.json()) as { ok?: boolean };
+        if (!payload?.ok) {
+          await markRetry(record.id);
+          continue;
+        }
+      } catch (error) {
+        console.error('Error interpretando respuesta de sincronización', error);
         await markRetry(record.id);
         continue;
       }
@@ -38,8 +45,6 @@ const syncPending = async () => {
 
 export const ServiceWorkerInitializer = () => {
   useEffect(() => {
-    initAppCheck();
-
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker
         .register('/sw.js')

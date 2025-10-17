@@ -1,43 +1,13 @@
 ﻿'use client';
 
 import { useMemo } from 'react';
-import { jsPDF } from 'jspdf';
 import { FileDown, FileSpreadsheet } from 'lucide-react';
 import { useDashboardStore } from '@/hooks/use-dashboard-store';
-import type { Invitee } from '@/types';
-
-const buildCsv = (rows: string[][]) => rows.map((row) => row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(',')).join('\n');
-
-const downloadBlob = (content: BlobPart, filename: string, type: string) => {
-  const blob = new Blob([content], { type });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
-};
-
-const buildInviteeRow = (invitee: Invitee, status: string): string[] => [
-  invitee.idEstudiante,
-  invitee.name,
-  invitee.programa ?? '',
-  invitee.role,
-  invitee.ticketCode,
-  invitee.documentNumber ?? '',
-  status,
-];
 
 export const ReportsPanel = () => {
   const invitees = useDashboardStore((state) => state.invitees);
   const checkIns = useDashboardStore((state) => state.checkIns);
-  const ceremonies = useDashboardStore((state) => state.ceremonies);
   const selectedCeremonyId = useDashboardStore((state) => state.selectedCeremonyId);
-
-  const ceremony = useMemo(
-    () => ceremonies.find((item) => item.id === selectedCeremonyId),
-    [ceremonies, selectedCeremonyId],
-  );
 
   const checkedMap = useMemo(() => new Map(checkIns.map((log) => [log.inviteeId, log])), [checkIns]);
 
@@ -56,51 +26,25 @@ export const ReportsPanel = () => {
   const checkedInvitees = invitees.filter((invitee) => checkedMap.has(invitee.id));
   const pendingInvitees = invitees.filter((invitee) => !checkedMap.has(invitee.id));
 
-  const exportCsv = () => {
-    const header = ['idEstudiante', 'nombre', 'programa', 'municipio', 'fechaCeremonia', 'rol', 'ticket', 'documento', 'estado'];
-    const rows = [header];
-    checkedInvitees.forEach((invitee) => rows.push(buildInviteeRow(invitee, 'Ingresó')));
-    pendingInvitees.forEach((invitee) => rows.push(buildInviteeRow(invitee, 'Pendiente')));
-    const csv = buildCsv(rows);
-    downloadBlob(csv, `${ceremony?.id ?? 'ceremonia'}-reporte.csv`, 'text/csv;charset=utf-8');
-  };
+  const downloadRemoteReport = async (format: 'csv' | 'pdf') => {
+    if (!selectedCeremonyId) {
+      return;
+    }
 
-  const exportPdf = () => {
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
-    const margin = 40;
-    let y = margin;
+    const query = new URLSearchParams({ ceremonyId: selectedCeremonyId, format });
+    const response = await fetch(`/api/reports/ceremony?${query.toString()}`);
+    if (!response.ok) {
+      console.error('No se pudo descargar el reporte', response.status);
+      return;
+    }
 
-    pdf.setFontSize(16);
-    pdf.text(ceremony?.name ?? 'Ceremonia', margin, y);
-    y += 20;
-    pdf.setFontSize(10);
-    pdf.text(`Ingresos: ${checkedInvitees.length}`, margin, y);
-    y += 14;
-    pdf.text(`Pendientes: ${pendingInvitees.length}`, margin, y);
-    y += 14;
-    pdf.text(`Duplicados evitados: ${duplicates.length}`, margin, y);
-    y += 30;
-
-    pdf.setFontSize(9);
-    pdf.text('Nombre | Rol | Programa | Municipio | Fecha | Ticket | Estado', margin, y);
-    y += 14;
-
-    const renderRows = (inviteeList: Invitee[], status: string) => {
-      inviteeList.forEach((invitee) => {
-        const rowText = `${invitee.name} | ${invitee.role} | ${invitee.programa ?? ''} | ${invitee.ticketCode} | ${status}`;
-        pdf.text(rowText, margin, y, { baseline: 'top' });
-        y += 14;
-        if (y > 800) {
-          pdf.addPage();
-          y = margin;
-        }
-      });
-    };
-
-    renderRows(checkedInvitees, 'Ingresó');
-    renderRows(pendingInvitees, 'Pendiente');
-
-    pdf.save(`${ceremony?.id ?? 'ceremonia'}-reporte.pdf`);
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `${selectedCeremonyId}-reporte.${format}`;
+    anchor.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -114,13 +58,13 @@ export const ReportsPanel = () => {
         </div>
         <div className="flex gap-2">
           <button
-            onClick={exportCsv}
+            onClick={() => void downloadRemoteReport('csv')}
             className="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/80 px-4 py-2 text-xs font-semibold text-slate-200 transition hover:border-emerald-400"
           >
             <FileSpreadsheet className="h-4 w-4" /> CSV
           </button>
           <button
-            onClick={exportPdf}
+            onClick={() => void downloadRemoteReport('pdf')}
             className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-5 py-2 text-xs font-semibold text-slate-950 transition hover:bg-emerald-400"
           >
             <FileDown className="h-4 w-4" /> PDF

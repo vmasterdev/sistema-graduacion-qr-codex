@@ -1,0 +1,16 @@
+services:
+  pocketbase:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        POCKETBASE_VERSION: "${POCKETBASE_VERSION:-0.22.15}"
+        POCKETBASE_ARCHIVE: "${POCKETBASE_ARCHIVE:-linux_amd64}"
+    restart: unless-stopped
+    ports:
+      - "${POCKETBASE_PORT:-8090}:8090"
+    volumes:
+      - ./pb_data:/pb/pb_data
+      - ./pb_public:/pb/pb_public
+      - ./pb_migrations:/pb/pb_migrations
+    command: ["serve", "--http=0.0.0.0:8090"]
