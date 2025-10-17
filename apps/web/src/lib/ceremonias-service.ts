@@ -71,6 +71,11 @@ const autenticarSupabase = async (usuario: string, contrasena: string) => {
 
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) {
+    if (error.name === 'AuthRetryableFetchError') {
+      throw new Error(
+        'No fue posible conectar con Supabase. Verifica NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY y tu conexión a internet.',
+      );
+    }
     throw new Error(error.message || 'Credenciales inválidas.');
   }
 
@@ -95,7 +100,24 @@ const importarConSupabase = async ({ registros, usuario, contrasena }: ImportCer
 
 export const importarCeremoniasProtegidas = async (params: ImportCeremoniasParams): Promise<ImportCeremoniasResult> => {
   if (!appConfig.supabaseUrl || !appConfig.supabaseAnonKey) {
-    throw new Error('Configura NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY para importar ceremonias.');
+    const detalles: string[] = [];
+
+    if (!appConfig.supabaseUrl) {
+      detalles.push(
+        appConfig.supabaseUrlRaw
+          ? 'La URL configurada no es válida. Usa el dominio público completo de tu proyecto, por ejemplo: https://<tu-proyecto>.supabase.co.'
+          : 'Falta definir NEXT_PUBLIC_SUPABASE_URL.',
+      );
+    }
+
+    if (!appConfig.supabaseAnonKey) {
+      detalles.push('Falta definir NEXT_PUBLIC_SUPABASE_ANON_KEY.');
+    }
+
+    const mensajeBase =
+      'Configura NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY para importar ceremonias.';
+
+    throw new Error(detalles.length ? `${mensajeBase} ${detalles.join(' ')}` : mensajeBase);
   }
 
   return importarConSupabase(params);
