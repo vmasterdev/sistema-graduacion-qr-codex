@@ -119,9 +119,12 @@ const handler = async (request: NextApiRequest, response: NextApiResponse<Import
     ceremony_date: row.ceremonyDate ?? null,
   }));
 
-  const studentsResult = await supabase.from('students').upsert(studentsPayload, {
-    onConflict: 'ceremony_external_id,external_id',
-  });
+  const studentsResult = await supabase
+    .from('students')
+    .upsert(studentsPayload, {
+      onConflict: 'ceremony_external_id,external_id',
+    })
+    .select('id, ceremony_external_id, external_id');
 
   if (studentsResult.error) {
     console.error('[students/import] error upsert students', studentsResult.error);
@@ -198,7 +201,6 @@ const handler = async (request: NextApiRequest, response: NextApiResponse<Import
       .from('invitees')
       .upsert(inviteesPayload, {
         onConflict: 'ceremony_external_id,student_external_id,role,guest_index',
-        returning: 'minimal',
       });
 
     if (inviteesResult.error) {
